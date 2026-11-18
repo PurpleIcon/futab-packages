@@ -52,7 +52,7 @@ jobs:
           else
             echo "Started by hand."
           fi
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Tools
         run: |
           sudo apt-get update
