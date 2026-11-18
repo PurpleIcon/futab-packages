@@ -1,0 +1,28 @@
+# Signing keys are never committed. The private key lives only in the
+# `signing` environment's secrets and the maintainer's offline backup; the
+# public key is built into the site, not kept here.
+*.key
+*.pem
+*.gpg
+*.asc
+*.p12
+*.pfx
+*.kbx
+*.rev
+secring*
+pubring*
+trustdb*
+private-keys-v1.d/
+openpgp-revocs.d/
+
+# Local builds and tests: downloaded packages and the built site.
+/packages/
+/site/
+/dist/
+
+# Editors and systems
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
