@@ -1,0 +1,139 @@
+# Builds the apt, dnf and Flatpak repositories from the latest published
+# release of every repository in repositories.txt, signs them, tests
+# installing from them, and publishes them on GitHub Pages:
+# https://purpleicon.github.io/futab-packages
+#
+# What starts it:
+#   - the `plugin-published` event, which FuTab's Publish workflow (and each
+#     FuTab plugin's) sends when a release is published (secret
+#     PACKAGES_TOKEN over there). Such an event always runs on the default
+#     branch, main;
+#   - "Run workflow" by hand, on main.
+#
+# Needs, in the environment `signing` (Settings -> Environments), which only
+# main may use, these secrets (README.md, "The signing key"):
+#   APT_SIGNING_KEY         the armoured private key, `gpg --armor --export-secret-keys`
+#   APT_SIGNING_PASSPHRASE  its passphrase
+# Pages must use "GitHub Actions" as its source, and the github-pages
+# environment must allow main.
+#
+# Based on oxiguitar-packages' .github/workflows/site.yml
+# (mateusrdp/oxiguitar-packages@070d367), with one branch instead of two.
+name: Site
+
+on:
+  repository_dispatch:
+    types: [plugin-published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancelled: each run builds from scratch, so the last one wins.
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build, sign and test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: signing
+    steps:
+      - name: What started it
+        env:
+          EVENT: ${{ github.event_name }}
+          FROM: ${{ github.event.client_payload.repository }}
+          TAG: ${{ github.event.client_payload.tag }}
+        run: |
+          if [[ "$EVENT" == repository_dispatch ]]; then
+            echo "Told by $FROM about $TAG."
+          else
+            echo "Started by hand."
+          fi
+      - uses: actions/checkout@v5
+      - name: Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils createrepo-c rpm gnupg flatpak ostree dbus
+      - name: Import the signing key
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          APT_SIGNING_PASSPHRASE: ${{ secrets.APT_SIGNING_PASSPHRASE }}
+        run: |
+          if [[ -z "$APT_SIGNING_KEY" ]]; then
+            echo "::error::The secret APT_SIGNING_KEY isn't set in the environment signing (see README.md)."
+            exit 1
+          fi
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --import
+          key="$(gpg --with-colons --list-secret-keys | awk -F: '/^fpr:/ { print $10; exit }')"
+          {
+            echo "GNUPGHOME=$GNUPGHOME"
+            echo "GPG_KEY_ID=$key"
+          } >> "$GITHUB_ENV"
+          if [[ -n "$APT_SIGNING_PASSPHRASE" ]]; then
+            printf '%s' "$APT_SIGNING_PASSPHRASE" > "$RUNNER_TEMP/passphrase"
+            chmod 600 "$RUNNER_TEMP/passphrase"
+            echo "GPG_PASSPHRASE_FILE=$RUNNER_TEMP/passphrase" >> "$GITHUB_ENV"
+          fi
+      - name: Fetch the packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/fetch-packages.sh "$RUNNER_TEMP/packages"
+      - name: Build the site
+        run: scripts/build-site.sh "$RUNNER_TEMP/packages" "$RUNNER_TEMP/site"
+      - name: Install FuTab from it with apt and dnf
+        run: |
+          if ls "$RUNNER_TEMP/site/apt/pool/main" | grep -q '^futab_'; then
+            scripts/test-install.sh "$RUNNER_TEMP/site" futab /usr/bin/futab
+          else
+            echo "::notice::No futab package in the repository: nothing to install."
+          fi
+      # The app from the Flatpak repository, for this user, the runtime from
+      # Flathub; every FuTab plugin in the repository, and OxiGuitar's
+      # Guitar Pro plugin from OxiGuitar's own repository (as a FuTab user
+      # adds it), each checked in the app's plugin folder; then FuTab's
+      # sample score opened in the sandbox (scripts/test-flatpak.sh).
+      - name: Install from the Flatpak repository
+        run: |
+          site="$RUNNER_TEMP/site"
+          if [[ ! -f "$site/flatpak/io.github.purpleicon.FuTab.flatpakref" ]]; then
+            echo "::notice::No FuTab Flatpak in the repository: nothing to install."
+            exit 0
+          fi
+          # Ubuntu 24.04 keeps unprivileged user namespaces from bubblewrap.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          mapfile -t plugins < <(ostree --repo="$site/flatpak/repo" refs \
+            | sed -n "s|^runtime/\(io\.github\.purpleicon\.FuTab\.Plugin\.[^/]*\)/$(uname -m)/stable$|futab:\1|p")
+          plugins+=(oxiguitar:io.github.mateusrdp.OxiGuitar.Plugin.guitarpro)
+          sample="$RUNNER_TEMP/sample/oxiguitar-test-song.gp"
+          curl -fsSL --create-dirs -o "$sample" \
+            https://raw.githubusercontent.com/PurpleIcon/futab/main/fixtures/gp/oxiguitar-test-song.gp
+          scripts/test-flatpak.sh "$site" "$sample" "${plugins[@]}"
+      - name: What the site holds
+        run: |
+          {
+            echo '```text'
+            cat "$RUNNER_TEMP/site/packages.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    name: Publish on Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

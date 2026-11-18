@@ -1,0 +1,6 @@
+# The repositories whose latest published release goes into the apt, dnf and
+# Flatpak repositories (drafts and pre-releases are never taken). One a
+# line, owner/name; the release's .deb, .rpm and .flatpak files are taken
+# and checked against its SHA256SUMS. Add a FuTab plugin by adding its line,
+# and give its repository the PACKAGES_TOKEN secret.
+PurpleIcon/futab
