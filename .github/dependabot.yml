@@ -1,0 +1,10 @@
+# Weekly version updates for the workflows' actions, as pull requests into
+# main. scripts/check-dco.sh skips Dependabot's commits.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: main
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

@@ -1,0 +1,53 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Based on oxiguitar-packages' site-src/index.html (mateusrdp/oxiguitar-packages@070d367). -->
+<!-- scripts/build-site.sh fills in @URL@ and @FINGERPRINT@. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FuTab packages</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --mute: #666; --code: #f2f2f4; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #eee; --bg: #17171a; --mute: #aaa; --code: #26262b; } }
+  body { margin: 0 auto; padding: 24px 16px 64px; max-width: 46rem; font: 16px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+  h1 { font-size: 1.6rem; } h2 { font-size: 1.15rem; margin-top: 2rem; }
+  pre { background: var(--code); padding: 12px; border-radius: 6px; overflow-x: auto; }
+  code { font: 0.92em ui-monospace, monospace; }
+  p.mute { color: var(--mute); }
+</style>
+</head>
+<body>
+<h1>FuTab packages</h1>
+<p>The apt, dnf and Flatpak repositories of <a href="https://github.com/PurpleIcon/futab">FuTab</a>, a free guitar tablature and score viewer, editor and player, and of its own plugins. Each package is the one attached to the release of its own repository; this site only signs and lists them.</p>
+<p>FuTab's other plugins (Guitar Pro, MIDI, ALSA, PipeWire and more) are OxiGuitar's, from <a href="https://mateusrdp.github.io/oxiguitar-packages/">OxiGuitar's repositories</a>: add those too, as below. Never install the <code>oxiguitar</code> app itself beside FuTab.</p>
+
+<h2>Debian, Ubuntu and relatives (apt)</h2>
+<pre><code>sudo install -d -m 0755 /etc/apt/keyrings
+sudo curl -fsSL @URL@/futab.gpg -o /etc/apt/keyrings/futab.gpg
+sudo curl -fsSL @URL@/futab.sources -o /etc/apt/sources.list.d/futab.sources
+sudo curl -fsSL https://mateusrdp.github.io/oxiguitar-packages/oxiguitar.gpg -o /etc/apt/keyrings/oxiguitar.gpg
+sudo curl -fsSL https://mateusrdp.github.io/oxiguitar-packages/oxiguitar.sources -o /etc/apt/sources.list.d/oxiguitar.sources
+sudo apt update
+sudo apt install futab</code></pre>
+<p><code>futab</code> recommends the Guitar Pro, MIDI, ALSA and PipeWire plugins, which apt installs with it from OxiGuitar's repository; only on a desktop without Wayland, install <code>futab-x11</code> instead (the X11 build, deprecated; it replaces <code>futab</code>). <code>apt upgrade</code> keeps all of them current.</p>
+
+<h2>Fedora and relatives (dnf)</h2>
+<pre><code>sudo curl -fsSL @URL@/futab.repo -o /etc/yum.repos.d/futab.repo
+sudo curl -fsSL https://mateusrdp.github.io/oxiguitar-packages/oxiguitar.repo -o /etc/yum.repos.d/oxiguitar.repo
+sudo dnf install futab</code></pre>
+
+<h2>Any Linux (Flatpak)</h2>
+<pre><code>flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak remote-add --if-not-exists futab @URL@/flatpak/futab.flatpakrepo
+flatpak remote-add --if-not-exists oxiguitar https://mateusrdp.github.io/oxiguitar-packages/flatpak/oxiguitar.flatpakrepo
+flatpak install futab io.github.purpleicon.FuTab
+flatpak install oxiguitar io.github.mateusrdp.OxiGuitar.Plugin.guitarpro io.github.mateusrdp.OxiGuitar.Plugin.midi io.github.mateusrdp.OxiGuitar.Plugin.pipewire</code></pre>
+<p>Or open <a href="flatpak/io.github.purpleicon.FuTab.flatpakref">io.github.purpleicon.FuTab.flatpakref</a> in a software centre, then add OxiGuitar's repository for the plugins. The runtime comes from Flathub. <code>flatpak update</code> keeps all of them current.</p>
+
+<h2>The signing key</h2>
+<p>All three repositories are signed with one key, fingerprint <code>@FINGERPRINT@</code>: <a href="futab.asc">futab.asc</a> (armoured) or <a href="futab.gpg">futab.gpg</a> (binary). Check the fingerprint against the one in the <a href="https://github.com/PurpleIcon/futab-packages">repository's README</a>. OxiGuitar's repositories have their own key, trusted only for them.</p>
+
+<p class="mute">FuTab itself never downloads anything from here: only apt, dnf and Flatpak do, when you ask them. The packages in this build are listed in <a href="packages.txt">packages.txt</a>.</p>
+</body>
+</html>
